@@ -127,8 +127,8 @@ void serial_debug(byte data[]) {
 void bt_write(char *str) {
   char c = *str;
   while (*str != '\0') {
-    if (!elm_linefeed && *str == 10) *str++; // skip linefeed for all reply
-    if (c == '4' && !elm_space && *str == 32) *str++; // skip space for obd reply
+    if (!elm_linefeed && *str == 10) { str++; continue; } // skip linefeed for all reply
+    if (c == '4' && !elm_space && *str == 32) { str++; continue; } // skip space for obd reply
     btSerial.write(*str++);
   }
 }
@@ -344,7 +344,7 @@ void procbtSerial() {
           byte pin = ((btdata1[5] > '9')? (btdata1[5] &~ 0x20) - 'A' + 10: (btdata1[5] - '0') * 16) +
                       ((btdata1[6] > '9')? (btdata1[6] &~ 0x20) - 'A' + 10: (btdata1[6] - '0'));
           if (btdata1[7] == 'T') { digitalWrite(pin, !digitalRead(pin)); }
-          else { digitalWrite(pin, btdata1[7]); }
+          else { digitalWrite(pin, btdata1[7] == '1' ? HIGH : LOW); }
           
           sprintf_P(btdata2, PSTR("OK\r\n>"));
         }
@@ -547,7 +547,7 @@ void procbtSerial() {
 
         break;
       }
-      else if (btdata1[i] != 32 || btdata1[i] != 10) { // ignore space and newline
+      else if (i < (int)sizeof(btdata1) - 1 && btdata1[i] != 32 && btdata1[i] != 10) { // ignore space and newline, guard against buffer overflow
         ++i;
       }
     }
@@ -642,9 +642,9 @@ void procdlcSerial() {
     // MAF = (IMAP/60)*(VE/100)*(Eng Disp)*(MMA)/(R)
     // Where: VE = 80% (Volumetric Efficiency), R = 8.314 J/°K/mole, MMA = 28.97 g/mole (Molecular mass of air)
     float maf = 0.0;
-    imap = rpm * maps / (iat + 273) / 2;
+    imap = (long)rpm * maps / (iat + 273) / 2;
     // ve = 75, ed = 1.595, afr = 14.7
-    maf = (imap / 60) * (80 / 100) * 1.595 * 28.9644 / 8.314472;
+    maf = (imap / 60) * 0.8 * 1.595 * 28.9644 / 8.314472;
     // (gallons of fuel) = (grams of air) / (air/fuel ratio) / 6.17 / 454
     //gof = maf / afr / 6.17 / 454;
     //gear = vss / (rpm+1) * 150 + 0.3;
@@ -968,7 +968,7 @@ void procdlcSerial() {
 
       float f;
 
-      f = readVcc() / 1000; // V read from ref. or 5.0
+      f = readVcc() / 1000.0; // V read from ref. or 5.0
       f = (analogRead(A0) * f) / 1024.0; // V
       f = f / (R2/(R1+R2)); // voltage divider
       volt2 = round(f * 10); // x10 for display w/ 1 decimal
@@ -987,7 +987,7 @@ void procdlcSerial() {
 
       // x = (y + 5) / 0.5
 
-      f = readVcc() / 1000; // V read from ref. or 5.0
+      f = readVcc() / 1000.0; // V read from ref. or 5.0
       f = (analogRead(A0) * f) / 1024.0; // V
       f = (f + 5) / 0.5; // afr
       afr = round(f * 10); // x10 for display w/ 1 decimal
@@ -1006,7 +1006,7 @@ void procdlcSerial() {
 
       // x = (y - 0.5) / 0.04
 
-      f = readVcc() / 1000; // V read from ref. or 5.0
+      f = readVcc() / 1000.0; // V read from ref. or 5.0
       f = (analogRead(A0) * f) / 1024.0; // V
       f = (f - 0.5) / 0.04; // psi
       fp = round(f * 10); // x10 for display w/ 1 decimal
