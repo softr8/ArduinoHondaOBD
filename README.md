@@ -30,36 +30,102 @@ Files
 
 Wiring for hobd_uni (Joined ELM and LCD codes)
 --------------------
+NOTE: the shipped code compiles with `#define LCD_i2c TRUE`, so the live build uses
+an **I2C LCD on A4/A5** (not the parallel LCD shown in the legacy image). Pins D4-D9
+are free in this build. Wiring table below reflects the I2C build.
+
     Honda 3 Pin DLC           Arduino Uno
     Gnd --------------------- Gnd
-    +12 --------------------- Vin
-    K-line ------------------ Pin12
+    +12 --------------------- Vin   (through protection, see below)
+    K-line ------------------ Pin12 (through K-line interface, see below)
 
-    HC-05 Bluetooth           Arduino Uno               
-    Rx ---------------------- Pin11
+    HC-05 Bluetooth           Arduino Uno
+    Rx ---------------------- Pin11 (through 1k/2k divider -> 3.3V, see below)
     Tx ---------------------- Pin10
 
-    LCD 16x2                  Arduino Uno               
-    RS ---------------------- Pin9
-    Enable ------------------ Pin8
-    D4 ---------------------- Pin7
-    D5 ---------------------- Pin6
-    D6 ---------------------- Pin5
-    D7 ---------------------- Pin4
-    VO ---------------------- 10k Potentiometer (+5V to Gnd)
+    LCD 16x2 (I2C backpack)   Arduino Uno
+    SDA --------------------- Pin18 (A4)   (4.7k pull-up to +5V)
+    SCL --------------------- Pin19 (A5)   (4.7k pull-up to +5V)
+    VCC --------------------- +5V
+    GND --------------------- Gnd
 
-    Piezo Buzzer              Arduino Uno               
-    (+) --------------------- Pin13
+    Piezo Buzzer              Arduino Uno
+    (+) --------------------- Pin13   (piezo element, or via transistor)
     (-) --------------------- Gnd
 
-    Tact Switch               Arduino Uno               
-    (+) --------------------- Pin17 (A3)
+    Tact Switch               Arduino Uno
+    (+) --------------------- Pin17 (A3)   (uses internal pull-up)
     (-) --------------------- Gnd
 
-    Voltage Divider           Arduino Uno               
+    Voltage Divider           Arduino Uno
     +12V divider circuit ---- Pin14 (A0)
-    (680k ohms and 220k ohms)
-    
+    (33k ohms and 10k ohms, 100nF from A0 to Gnd)
+
+    AEM AFR UEGO (0-5V)       Arduino Uno
+    Signal ------------------ Pin15 (A1)
+
+    100psi Fuel Pressure      Arduino Uno
+    Signal (0.5-4.5V) ------- Pin16 (A2)
+
+
+Required protection / interface (do NOT skip before connecting to a car)
+--------------------
+The Honda DLC supplies raw +12V and the K-line idles near battery voltage. Neither
+can touch the Arduino directly. The schematic below is the safe, working wiring.
+
+```
+                   hobd_uni  —  Arduino UNO (ATmega328P)  —  I2C LCD build
+                   ======================================================
+
+  HONDA 3-PIN DLC            PROTECTION / INTERFACE              ARDUINO UNO
+  ---------------            ----------------------              -----------
+
+  +12V o--[FUSE 2A]--+--|>|----+----------+----------------------o Vin
+                     |  SS54    |          |                       (or feed a
+                     | (revpol) |        100uF/50V                 LM2596 buck
+                     |         _|_         + 100nF                 to +5V)
+                     |         /_\ TVS      |
+                     |      SMBJ24A        GND
+                     |     (to GND)
+                     +--> +12V_prot --> L9637D VB(12), A0 divider top
+  GND  o-------------+-----------------------------------------------o GND
+
+  K-line o--[510R]--+----- K-line transceiver  ST L9637D -----------+
+                    |   K(7)=bus  VB(12)=+12V_prot  VCC(5)=+5V       |
+                    |   GND(8)=GND                                   |
+                    |   RX(1) ------------------------------> D12 (read)
+                    |   TX(4) <------------------------------ D12 (drive)
+                    +-- single-wire half-duplex: RX & TX both tie D12 -+
+                        [SoftwareSerialWithHalfDuplex dlcSerial(12,12)]
+
+  HC-05 RXD level shift (5V -> 3.3V):
+      D11 o---[ 1k ]---+---o HC-05 RXD
+                       |
+                     [ 2k ]
+                       |
+                      GND          = 5V * 2k/(1k+2k) = 3.33V
+      HC-05 TXD o------------------o D10   (3.3V is a valid logic-high, no shift)
+
+  +12V sense divider (replaces 680k/220k; lower impedance for the ADC):
+      +12V_prot o--[ 33k ]--+--[ 10k ]--GND
+                            |
+                            +--[100nF]--GND --o A0   (ratio 0.232, source 6k < 10k)
+      ** update code: R1 = 33000, R2 = 10000 **
+```
+
+Bill of protection parts:
+
+    K-line transceiver   ST L9637D (SO-8)    ISO9141 K-line, 12V<->logic, load-dump safe
+    K-line series R      510 ohm 1/4W        DLC K-line -> L9637D K pin
+    Reverse-polarity     SS54 Schottky       40V / 5A
+    Load-dump clamp      SMBJ24A TVS         24V standoff (> 14.7V charge), 600W
+    Bulk input cap       100uF/50V + 100nF   after diode, before regulator
+    HC-05 RX shift       1k + 2k resistors   5V -> 3.33V
+    A0 divider           33k + 10k + 100nF   ratio 0.232, source 6k
+    I2C pull-ups         2x 4.7k to +5V      if not already on the LCD backpack
+    Input fuse           2A                  at the DLC +12V feed
+
+(The legacy parallel-LCD diagram below predates the I2C build.)
 
 ![Alt text](https://raw.github.com/kerpz/ArduinoHondaOBD/master/images/UNI_wiring.png "UNI Wiring Image")
 
