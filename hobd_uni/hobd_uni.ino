@@ -988,7 +988,7 @@ void procdlcSerial() {
       // x = (y + 5) / 0.5
 
       f = readVcc() / 1000.0; // V read from ref. or 5.0
-      f = (analogRead(A0) * f) / 1024.0; // V
+      f = (analogRead(A1) * f) / 1024.0; // V (AEM AFR UEGO on A1)
       f = (f + 5) / 0.5; // afr
       afr = round(f * 10); // x10 for display w/ 1 decimal
 
@@ -1007,7 +1007,7 @@ void procdlcSerial() {
       // x = (y - 0.5) / 0.04
 
       f = readVcc() / 1000.0; // V read from ref. or 5.0
-      f = (analogRead(A0) * f) / 1024.0; // V
+      f = (analogRead(A2) * f) / 1024.0; // V (100psi fuel pressure on A2)
       f = (f - 0.5) / 0.04; // psi
       fp = round(f * 10); // x10 for display w/ 1 decimal
 
