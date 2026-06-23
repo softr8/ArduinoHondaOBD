@@ -71,7 +71,43 @@ are free in this build. Wiring table below reflects the I2C build.
 Required protection / interface (do NOT skip before connecting to a car)
 --------------------
 The Honda DLC supplies raw +12V and the K-line idles near battery voltage. Neither
-can touch the Arduino directly. The schematic below is the safe, working wiring.
+can touch the Arduino directly. The diagram below is the safe, working wiring.
+
+```mermaid
+flowchart TB
+  %% power in + protection
+  V12["DLC +12V"]:::pwr -->|"fuse 2A"| DI["SS54 diode<br/>(reverse-polarity)"]:::prot
+  DI --> TV["SMBJ24A TVS<br/>+ 100uF/100nF"]:::prot
+  TV -->|"+12V protected"| VIN["UNO Vin"]:::mcu
+  KL["DLC K-line ~12V"]:::sig -->|"510R"| LX["L9637D<br/>K-line transceiver"]:::prot
+  LX <-->|"single-wire UART"| D12["UNO D12"]:::mcu
+
+  %% wifi co-processor
+  D1["UNO D1 TX · 5V"]:::mcu -->|"1k/2k to 3.3V"| ER["ESP32 RX2"]:::mcu
+  ER --> ESP["ESP32<br/>WiFi AP + WebSocket :81"]:::mcu
+  ESP -.->|"ws://192.168.4.1"| PH["Phone / PWA"]:::ext
+
+  %% bluetooth (torque)
+  D11["UNO D11 TX · 5V"]:::mcu -->|"1k/2k to 3.3V"| HRX["HC-05 RX"]:::mcu
+  HTX["HC-05 TX · 3.3V"]:::mcu --> D10["UNO D10"]:::mcu
+
+  %% analog sensors
+  VB["Battery +12V"]:::pwr -->|"33k/10k + 100nF"| A0["UNO A0"]:::mcu
+  AFR["AEM AFR · 0-5V"]:::sig --> A1["UNO A1"]:::mcu
+  FP["Fuel press · 0.5-4.5V"]:::sig --> A2["UNO A2"]:::mcu
+
+  %% i2c lcd
+  A4["UNO A4 SDA"]:::mcu -->|"4.7k pull-up"| LCD["I2C LCD 16x2"]:::ext
+  A5["UNO A5 SCL"]:::mcu -->|"4.7k pull-up"| LCD
+
+  classDef pwr  fill:#3a1010,stroke:#ff5555,color:#fff;
+  classDef sig  fill:#10243a,stroke:#55aaff,color:#fff;
+  classDef prot fill:#3a2a10,stroke:#ffaa33,color:#fff;
+  classDef mcu  fill:#14241a,stroke:#55cc88,color:#fff;
+  classDef ext  fill:#241024,stroke:#cc66cc,color:#fff;
+```
+
+Plain-text fallback (same wiring):
 
 ```
                    hobd_uni  —  Arduino UNO (ATmega328P)  —  I2C LCD build
@@ -193,3 +229,6 @@ TODO
 -----
 * Add 128x64 LCD @ SPI support
 * Add 20x4 LCD @ I2C support
+* Render a true schematic image (real component symbols) with schemdraw
+  (Python) from the wiring above and commit it under images/ — the Mermaid
+  diagram shows connectivity but not proper schematic symbols
