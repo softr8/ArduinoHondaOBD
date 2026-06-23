@@ -34,7 +34,9 @@ command -v git >/dev/null || die "git not found"
 say "Ensuring arduino:avr core..."
 arduino-cli core list 2>/dev/null | grep -q '^arduino:avr' || arduino-cli core install arduino:avr
 
-LIBDIR="$(arduino-cli config get directories.user 2>/dev/null)/libraries"
+USERDIR="$(arduino-cli config get directories.user 2>/dev/null)"
+[ -n "$USERDIR" ] || USERDIR="$HOME/Documents/Arduino"   # arduino-cli default sketchbook
+LIBDIR="$USERDIR/libraries"
 mkdir -p "$LIBDIR" "$(dirname "$EXTRA_LIB")"
 
 if [ ! -d "$LIBDIR/SoftwareSerialWithHalfDuplex" ]; then

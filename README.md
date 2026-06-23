@@ -123,7 +123,7 @@ flowchart TB
   LX <-->|"single-wire UART"| D12
   D1 -->|"1kΩ/2kΩ to 3.3V"| ER
   ER --> ESP
-  ESP -.->|"ws://192.168.4.1"| PH
+  ESP -.->|"ws://192.168.4.1:81"| PH
   D11 -->|"1kΩ/2kΩ to 3.3V"| HRX
   HTX --> D10
   VB -->|"33kΩ/10kΩ + 100nF"| A0
@@ -262,6 +262,3 @@ TODO
 -----
 * Add 128x64 LCD @ SPI support
 * Add 20x4 LCD @ I2C support
-* Render a true schematic image (real component symbols) with schemdraw
-  (Python) from the wiring above and commit it under images/ — the Mermaid
-  diagram shows connectivity but not proper schematic symbols

@@ -68,7 +68,7 @@ EDGES = [
     ("LX",  "D12", "single-wire UART", "bidir"),
     ("D1",  "ER",  LVL, "solid"),
     ("ER",  "ESP", "", "solid"),
-    ("ESP", "PH",  "ws://192.168.4.1", "dashed"),
+    ("ESP", "PH",  "ws://192.168.4.1:81", "dashed"),
     ("D11", "HRX", LVL, "solid"),
     ("HTX", "D10", "", "solid"),
     ("VB",  "A0",  f"{PARTS['div_top']}/{PARTS['div_bot']} + {PARTS['div_cap']}", "solid"),

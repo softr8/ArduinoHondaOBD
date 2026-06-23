@@ -114,7 +114,8 @@ formula** and is the main protocol switch. Tested on P2T (OBD2) and P30 (OBD1).
 ## Repo tooling
 
 `.claude/` ships a compile-check hook (PostToolUse, runs `arduino-cli compile` on
-`.ino` edits), two review agents (AVR memory, OBD protocol), and a
-`/compile-sketch` skill. **The hook currently hardcodes the Nano fqbn**, so it
-reports false failures when editing the UNO sketch (`hobd_uni`) — that failure is
-the board/lib mismatch, not the edit.
+`.ino` edits), review agents (AVR memory, OBD protocol, electronics), and a
+`/compile-sketch` skill. The hook reads each sketch's board from its `sketch.yaml`
+(`default_fqbn`) and applies a per-sketch `--library` override (so `hobd_uni`'s
+fmalpartida LCD lib and `hobd_uni2`'s johnrickman lib coexist). So a hook failure
+is a **real** compile error — don't ignore it.

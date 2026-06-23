@@ -716,31 +716,32 @@ void procdlcSerial() {
 
     // stream one compact JSON line to the ESP WiFi/WebSocket co-processor over the
     // hardware UART (D1 TX). Integers only (AVR printf has no %f): volt and ign are
-    // x10 (deci-units), the web side scales them back.
-    {
-      char dtcs[44];
-      size_t n = 0;
-      dtcs[n++] = '[';
-      for (byte k = 0; k < dtcCount && k < 10; k++) {
-        int w = snprintf(dtcs + n, sizeof(dtcs) - n, "%s%d", k ? "," : "", dtcErrors[k]);
-        if (w < 0 || (size_t)w >= sizeof(dtcs) - n) break; // truncated/full: stop
-        n += w;
-      }
-      if (n < sizeof(dtcs) - 1) dtcs[n++] = ']';
-      dtcs[n] = '\0';
-
-      char j[300]; // sized for worst case: all fields + up to 10 DTCs + grown et/ec
-      snprintf(j, sizeof(j),
-        "{\"rpm\":%d,\"vss\":%d,\"ect\":%d,\"iat\":%d,\"map\":%d,\"tps\":%d,"
-        "\"volt\":%d,\"sft\":%d,\"lft\":%d,\"inj\":%d,\"ign\":%d,\"iac\":%d,"
-        "\"knoc\":%d,\"vavg\":%d,\"vtop\":%d,\"et\":%lu,\"ec\":%lu,"
-        "\"mil\":%d,\"dtc\":%s}",
-        rpm, vss, ect, iat, maps, tps,
-        volt, sft, lft, inj, ign, iac,
-        knoc, vssavg, vsstop, err_timeout, err_checksum,
-        (dtcCount > 0 ? 1 : 0), dtcs);
-      Serial.println(j);
+    // x10 (deci-units), the web side scales them back. Streamed field-by-field with
+    // F() literals so there's no big stack buffer (2KB SRAM) and the keys live in flash.
+    Serial.print(F("{\"rpm\":"));  Serial.print(rpm);
+    Serial.print(F(",\"vss\":"));  Serial.print(vss);
+    Serial.print(F(",\"ect\":"));  Serial.print(ect);
+    Serial.print(F(",\"iat\":"));  Serial.print(iat);
+    Serial.print(F(",\"map\":"));  Serial.print(maps);
+    Serial.print(F(",\"tps\":"));  Serial.print(tps);
+    Serial.print(F(",\"volt\":")); Serial.print(volt);
+    Serial.print(F(",\"sft\":"));  Serial.print(sft);
+    Serial.print(F(",\"lft\":"));  Serial.print(lft);
+    Serial.print(F(",\"inj\":"));  Serial.print(inj);
+    Serial.print(F(",\"ign\":"));  Serial.print(ign);
+    Serial.print(F(",\"iac\":"));  Serial.print(iac);
+    Serial.print(F(",\"knoc\":")); Serial.print(knoc);
+    Serial.print(F(",\"vavg\":")); Serial.print(vssavg);
+    Serial.print(F(",\"vtop\":")); Serial.print(vsstop);
+    Serial.print(F(",\"et\":"));   Serial.print(err_timeout);
+    Serial.print(F(",\"ec\":"));   Serial.print(err_checksum);
+    Serial.print(F(",\"mil\":"));  Serial.print(dtcCount > 0 ? 1 : 0);
+    Serial.print(F(",\"dtc\":["));
+    for (byte k = 0; k < dtcCount && k < 10; k++) {
+      if (k) Serial.print(',');
+      Serial.print(dtcErrors[k]);
     }
+    Serial.println(F("]}"));
 
     //lcd.clear();
     if (pag_select == 0) {

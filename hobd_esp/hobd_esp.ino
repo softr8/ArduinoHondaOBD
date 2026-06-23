@@ -66,7 +66,10 @@ void setup() {
   webSocket.begin();
   webSocket.onEvent(onWsEvent);
 
-  if (LittleFS.begin(true)) {
+  // do NOT auto-format on mount failure (the `false`): the deploy script flashes a
+  // valid LittleFS image, so a mount failure means "not flashed yet" -- formatting
+  // would silently wipe the dashboard partition and then serve 404s.
+  if (LittleFS.begin(false)) {
     // serve the dashboard PWA; index.html for "/"
     httpServer.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
     httpServer.onNotFound([](AsyncWebServerRequest *req) {
@@ -75,7 +78,7 @@ void setup() {
     httpServer.begin();
     Serial.println("HTTP server serving /dashboard from LittleFS");
   } else {
-    Serial.println("LittleFS mount failed - dashboard not served (WS still works)");
+    Serial.println("LittleFS mount failed - run tools/deploy-esp.sh to flash the dashboard (WS still works)");
   }
 }
 
