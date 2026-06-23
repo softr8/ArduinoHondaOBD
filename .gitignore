@@ -2,3 +2,4 @@
 build
 dashboard/node_modules
 tools/schematic/.venv
+tools/schematic/__pycache__
