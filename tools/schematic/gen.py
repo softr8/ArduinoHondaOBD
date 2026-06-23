@@ -153,20 +153,20 @@ def full_schematic() -> None:
     # ---- central Arduino UNO ----
     uno = elm.Ic(
         pins=[
-            elm.IcPin(name="Vin", side="left", anchorname="Vin"),
+            elm.IcPin(name="Vin", side="left", anchorname="Vin", pos=0.1),
             elm.IcPin(name="5V", side="left", anchorname="V5"),
             elm.IcPin(name="GND", side="left", anchorname="GND"),
             elm.IcPin(name="RESET", side="left", anchorname="RST"),
-            elm.IcPin(name="D13", side="right", anchorname="D13"),
-            elm.IcPin(name="D12", side="right", anchorname="D12"),
-            elm.IcPin(name="D11", side="right", anchorname="D11"),
-            elm.IcPin(name="D10", side="right", anchorname="D10"),
+            elm.IcPin(name="D12", side="right", anchorname="D12", pos=0.1),
+            elm.IcPin(name="D10", side="right", anchorname="D10", pos=0.2),
+            elm.IcPin(name="D13", side="right", anchorname="D13", pos=0.4),
+            elm.IcPin(name="D11", side="right", anchorname="D11", pos=0.6),
             elm.IcPin(name="D1 TX", side="right", anchorname="D1"),
             elm.IcPin(name="A0", side="bottom", anchorname="A0"),
-            elm.IcPin(name="A1", side="bottom", anchorname="A1"),
-            elm.IcPin(name="A2", side="bottom", anchorname="A2"),
-            elm.IcPin(name="A3", side="bottom", anchorname="A3"),
-            elm.IcPin(name="A4 SDA", side="bottom", anchorname="A4"),
+            elm.IcPin(name="A1", side="bottom", anchorname="A1", pos=0.2),
+            elm.IcPin(name="A2", side="bottom", anchorname="A2", pos=0.3),
+            elm.IcPin(name="A3", side="bottom", anchorname="A3", pos=0.4),
+            elm.IcPin(name="A4 SDA", side="bottom", anchorname="A4", pos=0.7),
             elm.IcPin(name="A5 SCL", side="bottom", anchorname="A5"),
         ],
         size=(6, 8), label="Arduino UNO", plblsize=15, leadlen=0.9,
@@ -195,26 +195,27 @@ def full_schematic() -> None:
 
     # mark the DLC K-line pin as the source of that net (the K-line interface
     # lives next to the transceiver on the right, not wired across the page)
-    d += elm.Line().right(0.5).at(dlc.KL)
+    d += elm.Line().right(.5).at(dlc.KL)
     d += elm.Dot(open=True).label("to K-line\ninterface", "right", fontsize=8)
 
     # ======================= COMMS (right, well spaced) =======================
     espx = 11
-    esp = ic("", left=[("V5", "5V"), ("G", "GND"), ("RX", "RX2")], w=2.8).at((espx, 7)).anchor("center")
+    esp = ic("", left=[("RX", "RX2")], right=[("V5", "5V"), ("G", "GND")], w=2.8).at((espx, 7)).anchor("center")
     d += esp
     d.add(elm.Label().at((espx, 9.2)).label("ESP32  (WiFi AP, WS :81)", fontsize=10))
     v5(esp.V5)
     gnd(esp.G)
-    d += elm.Line().right(0.8).at(uno.D1)
+    d += elm.Line().right(0.1).at(uno.D1)
     d += elm.Resistor().right().label(P["lvl_top"], fontsize=8)
     nlv = d.add(elm.Dot())
-    d += elm.Resistor().down().at(nlv.center).label(P["lvl_bot"], loc="right", fontsize=8)
+    d += elm.Resistor().down().at(nlv.center).label(P["lvl_bot"], loc="left", fontsize=8)
     gnd(d.here)
     d += elm.Wire("-|").at(nlv.center).to(esp.RX).label("3.3V", loc="top", fontsize=8)
 
-    hc = ic("", left=[("RXD", "RXD"), ("TXD", "TXD"), ("VCC", "VCC"), ("G", "GND")], w=2.6).at((espx, -1)).anchor("center")
+    hc = ic("", left=[("TXD", "TXD"), ("RXD", "RXD"), ("VCC", "VCC")], 
+                right=[("G", "GND")], w=2.6).at((espx, -1)).anchor("center")
     d += hc
-    d.add(elm.Label().at((espx, 1.8)).label("HC-05 Bluetooth", fontsize=10))
+    d.add(elm.Label().at((espx, 1.8)).label("HC-05 Bluetooth", fontsize=10)).anchor("center")
     v5(hc.VCC)
     gnd(hc.G)
     d += elm.Line().right(0.8).at(uno.D11)
@@ -223,25 +224,25 @@ def full_schematic() -> None:
     d += elm.Resistor().down().at(nlv2.center).label(P["lvl_bot"], loc="right", fontsize=8)
     gnd(d.here)
     d += elm.Wire("-|").at(nlv2.center).to(hc.RXD).label("3.3V", loc="top", fontsize=8)
-    d += elm.Wire("-|").at(hc.TXD).to(uno.D10)
+    d += elm.Wire("|-").at(hc.TXD).to(uno.D10)
 
     # K-line transceiver (right); its own K-line terminal sits beside it
-    kx = ic("", left=[("RX", "RX"), ("TX", "TX"), ("VCC", "VCC"), ("G", "GND")],
-            right=[("K", "K"), ("VB", "VB")], w=2.6).at((espx, -9)).anchor("center")
+    kx = ic("", right=[("RX", "RX"), ("TX", "TX")],
+            left=[("K", "K"), ("G", "GND"), ("VB", "VB"), ("VCC", "VCC")], w=2.6).at((espx, -9)).anchor("center")
     d += kx
-    d.add(elm.Label().at((espx, -6.4)).label("L9637D K-line xcvr", fontsize=10))
+    d.add(elm.Label().at((espx, -6.4)).label("L9637D K-line xcvr", loc="center", fontsize=10))
     v5(kx.VCC)
     gnd(kx.G)
     d += elm.Wire("-|").at(kx.RX).to(uno.D12)
     d += elm.Wire("-|").at(kx.TX).to(uno.D12)
-    d += elm.Line().right(0.4).at(kx.K)
-    d += elm.Resistor().right().label(P["kline_series"], fontsize=8)
-    d += elm.Dot(open=True).label("K-line\n(Honda DLC)", "right", fontsize=8)
+    d += elm.Line().left(0.2).at(kx.K)
+    d += elm.Resistor().right().label(P["kline_series"], loc="top", fontsize=8)
+    d += elm.Dot(open=True).label("K-line\n(Honda DLC)", "bottom", fontsize=8)
     d += elm.Line().right(0.5).at(kx.VB)
     d += elm.Dot(open=True).label("+12V prot", "right", fontsize=8)
 
     # buzzer on D13 (open gap between the UNO and the modules)
-    d += elm.Line().right(2.5).at(uno.D13)
+    d += elm.Line().right(1.0).at(uno.D13)
     d += elm.Speaker().right().label(f"buzzer\n{P['buzzer']}", fontsize=8)
     gnd(d.here)
 
@@ -268,11 +269,12 @@ def full_schematic() -> None:
 
     # LCD on A4/A5
     lcd = ic("I2C LCD 16x2",
-             left=[("SDA", "SDA"), ("SCL", "SCL"), ("VCC", "VCC"), ("G", "GND")], w=3).at((1, -12)).anchor("center")
+             left=[("VCC", "VCC"), ("SDA", "SDA"), ("SCL", "SCL")], 
+             right= [("G", "GND")], w=3).at((3, -10)).anchor("center")
     d += lcd
     v5(lcd.VCC)
     gnd(lcd.G)
-    d += elm.Wire("-|").at(lcd.SDA).to(uno.A4).label(P["i2c_pull"] + " pull-ups to +5V", loc="bottom", fontsize=8)
+    d += elm.Wire("-|-").at(lcd.SDA).to(uno.A4).label(P["i2c_pull"] + " pull-ups to +5V", fontsize=8)
     d += elm.Wire("-|").at(lcd.SCL).to(uno.A5)
 
     os.makedirs(os.path.dirname(FULL_SVG), exist_ok=True)
