@@ -1,0 +1,12 @@
+{
+  "name": "honda-obd-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dev tooling for the Honda OBD live dashboard (mock WebSocket server).",
+  "scripts": {
+    "mock": "node mock-server.js"
+  },
+  "devDependencies": {
+    "ws": "^8.21.0"
+  }
+}

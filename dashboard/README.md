@@ -44,8 +44,8 @@ OBD2 P-codes + descriptions for display.
 
 Develop without hardware
 ------------------------
-    npm install ws
-    node mock-server.js
+    npm install
+    npm run mock          # serves frames on ws://localhost:81
     # then open index.html in a browser with:  ?ws=ws://localhost:81
     # e.g. via any static server, or open the file directly
 
