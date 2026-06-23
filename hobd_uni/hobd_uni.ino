@@ -101,12 +101,15 @@ byte vss_alarm = 100; // kph
 // voltage divider
 //float R1 = 30000.0;
 //float R2 = 7500.0;
-float R1 = 680000.0; // Resistance of R1 (680kohms)
-float R2 = 220000.0; // Resistance of R2 (220kohms)
+float R1 = 33000.0; // Resistance of R1 (33kohms) - low ADC source impedance, +100nF on A0
+float R2 = 10000.0; // Resistance of R2 (10kohms)
 
 unsigned long err_timeout = 0, err_checksum = 0, ect_cnt = 0, vss_cnt = 0;
 
 byte dlcdata[20]={0};  // dlc data buffer
+
+byte dtcErrors[10]={0}; // captured DTC (Honda MIL code numbers) for the WiFi stream
+byte dtcCount = 0;
 
 void serial_debug(byte data[]) {
   // debug
@@ -127,8 +130,8 @@ void serial_debug(byte data[]) {
 void bt_write(char *str) {
   char c = *str;
   while (*str != '\0') {
-    if (!elm_linefeed && *str == 10) *str++; // skip linefeed for all reply
-    if (c == '4' && !elm_space && *str == 32) *str++; // skip space for obd reply
+    if (!elm_linefeed && *str == 10) { str++; continue; } // skip linefeed for all reply
+    if (c == '4' && !elm_space && *str == 32) { str++; continue; } // skip space for obd reply
     btSerial.write(*str++);
   }
 }
@@ -344,7 +347,7 @@ void procbtSerial() {
           byte pin = ((btdata1[5] > '9')? (btdata1[5] &~ 0x20) - 'A' + 10: (btdata1[5] - '0') * 16) +
                       ((btdata1[6] > '9')? (btdata1[6] &~ 0x20) - 'A' + 10: (btdata1[6] - '0'));
           if (btdata1[7] == 'T') { digitalWrite(pin, !digitalRead(pin)); }
-          else { digitalWrite(pin, btdata1[7]); }
+          else { digitalWrite(pin, btdata1[7] == '1' ? HIGH : LOW); }
           
           sprintf_P(btdata2, PSTR("OK\r\n>"));
         }
@@ -547,11 +550,31 @@ void procbtSerial() {
 
         break;
       }
-      else if (btdata1[i] != 32 || btdata1[i] != 10) { // ignore space and newline
+      else if (i < (int)sizeof(btdata1) - 1 && btdata1[i] != 32 && btdata1[i] != 10) { // ignore space and newline, guard against buffer overflow
         ++i;
       }
     }
 }  
+
+// Scan DTCs into dtcErrors[]/dtcCount without touching the LCD (used by the WiFi
+// stream's periodic auto-scan). Mirrors the page-3 decode (row 0x40, hi/lo nibble
+// per byte, same 23/24 haxx remap).
+void scanDtc() {
+  dtcCount = 0;
+  if (dlcCommand(0x20, 0x05, 0x40, 0x10)) {
+    for (byte i = 0; i < 14 && dtcCount < 10; i++) {
+      if (dlcdata[i + 2] >> 4) {
+        dtcErrors[dtcCount++] = i * 2;
+      }
+      if ((dlcdata[i + 2] & 0x0f) && dtcCount < 10) {
+        byte e = (i * 2) + 1;
+        if (e == 23) e = 22; // haxx
+        if (e == 24) e = 23;
+        dtcErrors[dtcCount++] = e;
+      }
+    }
+  }
+}
 
 void procdlcSerial() {
   static unsigned long msTick = millis();
@@ -642,9 +665,9 @@ void procdlcSerial() {
     // MAF = (IMAP/60)*(VE/100)*(Eng Disp)*(MMA)/(R)
     // Where: VE = 80% (Volumetric Efficiency), R = 8.314 J/°K/mole, MMA = 28.97 g/mole (Molecular mass of air)
     float maf = 0.0;
-    imap = rpm * maps / (iat + 273) / 2;
+    imap = (long)rpm * maps / (iat + 273) / 2;
     // ve = 75, ed = 1.595, afr = 14.7
-    maf = (imap / 60) * (80 / 100) * 1.595 * 28.9644 / 8.314472;
+    maf = (imap / 60) * 0.8 * 1.595 * 28.9644 / 8.314472;
     // (gallons of fuel) = (grams of air) / (air/fuel ratio) / 6.17 / 454
     //gof = maf / afr / 6.17 / 454;
     //gear = vss / (rpm+1) * 150 + 0.3;
@@ -683,6 +706,42 @@ void procdlcSerial() {
     if (ect > ect_alarm || vss > vss_alarm) { digitalWrite(13, HIGH); }
     else { digitalWrite(13, LOW); }
 
+    // periodic DTC auto-scan (~10s) so the WiFi stream has fresh codes without
+    // anyone pressing the car button
+    static unsigned long dtcTick = 0;
+    if (millis() - dtcTick >= 10000) {
+      dtcTick = millis();
+      scanDtc();
+    }
+
+    // stream one compact JSON line to the ESP WiFi/WebSocket co-processor over the
+    // hardware UART (D1 TX). Integers only (AVR printf has no %f): volt and ign are
+    // x10 (deci-units), the web side scales them back. Streamed field-by-field with
+    // F() literals so there's no big stack buffer (2KB SRAM) and the keys live in flash.
+    Serial.print(F("{\"rpm\":"));  Serial.print(rpm);
+    Serial.print(F(",\"vss\":"));  Serial.print(vss);
+    Serial.print(F(",\"ect\":"));  Serial.print(ect);
+    Serial.print(F(",\"iat\":"));  Serial.print(iat);
+    Serial.print(F(",\"map\":"));  Serial.print(maps);
+    Serial.print(F(",\"tps\":"));  Serial.print(tps);
+    Serial.print(F(",\"volt\":")); Serial.print(volt);
+    Serial.print(F(",\"sft\":"));  Serial.print(sft);
+    Serial.print(F(",\"lft\":"));  Serial.print(lft);
+    Serial.print(F(",\"inj\":"));  Serial.print(inj);
+    Serial.print(F(",\"ign\":"));  Serial.print(ign);
+    Serial.print(F(",\"iac\":"));  Serial.print(iac);
+    Serial.print(F(",\"knoc\":")); Serial.print(knoc);
+    Serial.print(F(",\"vavg\":")); Serial.print(vssavg);
+    Serial.print(F(",\"vtop\":")); Serial.print(vsstop);
+    Serial.print(F(",\"et\":"));   Serial.print(err_timeout);
+    Serial.print(F(",\"ec\":"));   Serial.print(err_checksum);
+    Serial.print(F(",\"mil\":"));  Serial.print(dtcCount > 0 ? 1 : 0);
+    Serial.print(F(",\"dtc\":["));
+    for (byte k = 0; k < dtcCount && k < 10; k++) {
+      if (k) Serial.print(',');
+      Serial.print(dtcErrors[k]);
+    }
+    Serial.println(F("]}"));
 
     //lcd.clear();
     if (pag_select == 0) {
@@ -968,7 +1027,7 @@ void procdlcSerial() {
 
       float f;
 
-      f = readVcc() / 1000; // V read from ref. or 5.0
+      f = readVcc() / 1000.0; // V read from ref. or 5.0
       f = (analogRead(A0) * f) / 1024.0; // V
       f = f / (R2/(R1+R2)); // voltage divider
       volt2 = round(f * 10); // x10 for display w/ 1 decimal
@@ -987,8 +1046,8 @@ void procdlcSerial() {
 
       // x = (y + 5) / 0.5
 
-      f = readVcc() / 1000; // V read from ref. or 5.0
-      f = (analogRead(A0) * f) / 1024.0; // V
+      f = readVcc() / 1000.0; // V read from ref. or 5.0
+      f = (analogRead(A1) * f) / 1024.0; // V (AEM AFR UEGO on A1)
       f = (f + 5) / 0.5; // afr
       afr = round(f * 10); // x10 for display w/ 1 decimal
 
@@ -1006,8 +1065,8 @@ void procdlcSerial() {
 
       // x = (y - 0.5) / 0.04
 
-      f = readVcc() / 1000; // V read from ref. or 5.0
-      f = (analogRead(A0) * f) / 1024.0; // V
+      f = readVcc() / 1000.0; // V read from ref. or 5.0
+      f = (analogRead(A2) * f) / 1024.0; // V (100psi fuel pressure on A2)
       f = (f - 0.5) / 0.04; // psi
       fp = round(f * 10); // x10 for display w/ 1 decimal
 
@@ -1094,7 +1153,7 @@ void setup()
   //pinMode(18, OUTPUT); // Door lock
   //pinMode(19, OUTPUT); // Door unlock
 
-  //Serial.begin(115200); // For debugging
+  Serial.begin(115200); // USB debug + ESP WiFi co-processor (JSON stream on D1 TX)
   btSerial.begin(9600);
   //btSerial.begin(38400);
   dlcSerial.begin(9600);

@@ -103,6 +103,11 @@ float volt = 0, o2 = 0;
 byte vss = 0;
 bool sw_aircon, sw_brake, sw_vtec;
 
+// extra k-line channels (already fetched, now decoded)
+byte altload = 0;        // alternator load (%)
+float eld = 0;           // electrical load detector (Amps)
+byte swdata0 = 0, swdata1 = 0; // raw row0 switch bytes for on-car bit mapping
+
 // extra sensor
 float volt2 = 0, th = 0, afr = 0, fp = 0;
 bool cp;
@@ -180,9 +185,8 @@ int dlcCommand(byte cmd, byte num, byte loc, byte len)
 
   if (i < (len + 3))
   { // timeout
-    dlcTimeout++;
-    if (dlcTimeout > 255)
-      dlcTimeout = 0;
+    if (dlcTimeout < 255)
+      dlcTimeout++; // saturate, keep diagnostic count meaningful
     return 0; // failed
   }
 
@@ -195,9 +199,8 @@ int dlcCommand(byte cmd, byte num, byte loc, byte len)
   crc = 0xFF - (crc - 1);
   if (crc != dlcdata[len + 2])
   { // checksum failed
-    dlcChecksumError++;
-    if (dlcChecksumError > 255)
-      dlcChecksumError = 0;
+    if (dlcChecksumError < 255)
+      dlcChecksumError++; // saturate, keep diagnostic count meaningful
     return 0; // failed
   }
 
@@ -209,26 +212,28 @@ void scanDtcError()
 {
   byte i;
 
+  dtcCount = 0; // reset before each scan
+
   if (dlcCommand(0x20, 0x05, 0x40, 0x10))
   { // row 5
     for (i = 0; i < 14; i++)
     {
-      if (dlcdata[i + 2] >> 4)
+      if ((dlcdata[i + 2] >> 4) && dtcCount < 14)
       {
-        dtcErrors[i] = i * 2;
+        dtcErrors[dtcCount] = i * 2;
         dtcCount++;
       }
-      if (dlcdata[i + 2] & 0xf)
+      if ((dlcdata[i + 2] & 0xf) && dtcCount < 14)
       {
         // haxx
         // if (errnum == 23) errnum = 22;
         // if (errnum == 24) errnum = 23;
-        dtcErrors[i] = (i * 2) + 1;
+        dtcErrors[dtcCount] = (i * 2) + 1;
         // haxx
-        if (dtcErrors[i] == 23)
-          dtcErrors[i] = 22;
-        if (dtcErrors[i] == 24)
-          dtcErrors[i] = 23;
+        if (dtcErrors[dtcCount] == 23)
+          dtcErrors[dtcCount] = 22;
+        if (dtcErrors[dtcCount] == 24)
+          dtcErrors[dtcCount] = 23;
         dtcCount++;
       }
     }
@@ -278,6 +283,11 @@ void readEcuData()
     // dlcdata[14]
     // dlcdata[15]
     // dlcdata[17]
+
+    // snapshot raw switch bytes; watch SW page on-car to map the
+    // remaining bits (brake/clutch/PSP/etc) for this B16 OBD1 ECU
+    swdata0 = dlcdata[10];
+    swdata1 = dlcdata[12];
   }
 
   delay(1);
@@ -302,9 +312,11 @@ void readEcuData()
     */
 
     f = dlcdata[9];
-    volt = f / 10.45; // (V) battery
-    // alt_fr = dlcdata[10] / 2.55 // (%) alternator load
-    // eld = 77.06 - dlcdata[11] / 2.5371; // (Amps) electrical load
+    volt = f / 10.45;                   // (V) battery
+    altload = dlcdata[10] / 2.55;       // (%) alternator load
+    eld = 77.06 - dlcdata[11] / 2.5371; // (Amps) electrical load
+    if (eld < 0)
+      eld = 0;
   }
 
   delay(1);
@@ -377,7 +389,7 @@ float readVoltage()
   float f;
 
   // read voltage sensor (volt2)
-  f = readVcc() / 1000;                    // V read from ref. or 5.0
+  f = readVcc() / 1000.0;                    // V read from ref. or 5.0
   f = (analogRead(PIN_VOLT) * f) / 1024.0; // V
   f = f / (R2 / (R1 + R2));                // voltage divider
 
@@ -401,7 +413,7 @@ float readAirFuelRatio()
   // x = (y + 5) / 0.5
 
   // read afr sensor (afr)
-  float f = readVcc() / 1000;             // V read from ref. or 5.0
+  float f = readVcc() / 1000.0;             // V read from ref. or 5.0
   f = (analogRead(PIN_AFR) * f) / 1024.0; // V
   f = (f + 5) / 0.5;                      // afr
   // f = 2 * f + 10;
@@ -457,7 +469,7 @@ float readFuelPressure()
   // x = (y - 0.5) / 0.04
 
   // fuel pressur sensor (fp)
-  float f = readVcc() / 1000;            // V read from ref. or 5.0
+  float f = readVcc() / 1000.0;            // V read from ref. or 5.0
   f = (analogRead(PIN_FP) * f) / 1024.0; // V
   f = (f - 0.5) / 0.04;                  // psi
   f = f * 6.89476;                       // kPa
@@ -478,9 +490,15 @@ void bt_write(char *str)
   while (*str != '\0')
   {
     if (!elm_linefeed && *str == 10)
-      *str++; // skip linefeed for all reply
+    {
+      str++; // skip linefeed for all reply
+      continue;
+    }
     if (c == '4' && !elm_space && *str == 32)
-      *str++; // skip space for obd reply
+    {
+      str++; // skip space for obd reply
+      continue;
+    }
     btSerial.write(*str++);
   }
 }
@@ -592,7 +610,7 @@ void procbtSerial()
         }
         else
         {
-          digitalWrite(pin, btdata1[7]);
+          digitalWrite(pin, btdata1[7] == '1' ? HIGH : LOW);
         }
 
         sprintf_P(btdata2, PSTR("OK\r\n>"));
@@ -872,8 +890,8 @@ void procbtSerial()
 
       break;
     }
-    else if (btdata1[i] != 32 || btdata1[i] != 10)
-    { // ignore space and newline
+    else if (i < (int)sizeof(btdata1) - 1 && btdata1[i] != 32 && btdata1[i] != 10)
+    { // ignore space and newline, guard against buffer overflow
       ++i;
     }
   }
@@ -1122,6 +1140,29 @@ void procDisplay(void)
     lcd.print("  GR");
     lcd.print(gear);
   }
+  else if (pag_select == 7)
+  {
+    // display 7 // extra k-line channels + raw switch bytes
+    // AL000 ELD000.0
+    // SW: 00 00 (hex)
+
+    lcd.setCursor(0, 0);
+    lcd.print("AL");
+    lcdZeroPaddedPrint(altload, 3);
+    lcd.print(" ELD");
+    lcdZeroPaddedPrint(eld, 3, true);
+
+    lcd.setCursor(0, 1);
+    lcd.print("SW: ");
+    if (swdata0 < 0x10)
+      lcd.print("0");
+    lcd.print(swdata0, HEX);
+    lcd.print(" ");
+    if (swdata1 < 0x10)
+      lcd.print("0");
+    lcd.print(swdata1, HEX);
+    lcd.print("      ");
+  }
   /*
   else if (pag_select == 5) {
     // Top Recorded
@@ -1185,7 +1226,7 @@ void procButtons()
       else if (millis() - buttonsTick >= 5)
       { // short press 5 ms
         pag_select++;
-        if (pag_select > 6)
+        if (pag_select > 7)
         {
           pag_select = 1;
         }
@@ -1315,14 +1356,14 @@ void execEvery(int ms)
     // IMAP = RPM * MAP / IAT / 2
     // MAF = (IMAP/60)*(VE/100)*(Eng Disp)*(MMA)/(R)
     // Where: VE = 80% (Volumetric Efficiency), R = 8.314 J/°K/mole, MMA = 28.97 g/mole (Molecular mass of air)
-    int imap = rpm * maps / (iat + 273) / 2;
+    int imap = (long)rpm * maps / (iat + 273) / 2;
     // ve = 75, ed = 1.595, afr = 14.7
-    maf = (imap / 60) * (80 / 100) * 1.595 * 28.9644 / 8.314472;
+    maf = (imap / 60) * 0.8 * 1.595 * 28.9644 / 8.314472;
 
     // (gallons of fuel) = (grams of air) / (air/fuel ratio) / 6.17 / 454
     // gof = maf / afr / 6.17 / 454;
 
-    gear = vss / (rpm + 1) * 150 + 0.3;
+    gear = (float)vss / (rpm + 1) * 150 + 0.3;
 
     procDisplay();
   }

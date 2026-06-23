@@ -1,2 +1,5 @@
 .vscode/c_cpp_properties.json
 build
+dashboard/node_modules
+tools/schematic/.venv
+tools/schematic/__pycache__

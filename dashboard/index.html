@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+  <meta name="theme-color" content="#0a0806">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Honda OBD</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="top">
+    <div class="brand">
+      <span class="mark">H</span>
+      <span class="wordmark">HONDA<i>·</i>OBD</span>
+    </div>
+    <div id="link" class="link down">
+      <span class="dot"></span><span class="link-txt">NO LINK</span>
+    </div>
+  </header>
+
+  <!-- TACHOMETER: shift-light strip + rpm -->
+  <section class="tach" id="tach">
+    <div class="shiftlights" id="shiftlights" aria-hidden="true"></div>
+    <div class="tach-read">
+      <span class="tach-num" id="rpm">----</span>
+      <span class="tach-unit">RPM</span>
+    </div>
+  </section>
+
+  <!-- SPEED hero -->
+  <section class="speed">
+    <span class="speed-num" id="vss">--</span>
+    <span class="speed-unit">KM/H</span>
+  </section>
+
+  <!-- instrument grid -->
+  <main id="gauges" class="cluster"></main>
+
+  <!-- malfunction indicator lamp + codes -->
+  <section id="dtc" class="dtc ok">
+    <div class="dtc-head">
+      <span class="mil" id="mil" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path d="M5 13c0-3 1.5-5 3-7 .6 2 2 2.5 3 2.5 1.5 0 2-1.5 2-3 2 1 4 3.5 4 7.5a7 7 0 1 1-14 0z"/></svg>
+      </span>
+      <span class="dtc-title" id="dtc-title">CHECK ENGINE</span>
+      <span class="dtc-count" id="dtc-count"></span>
+    </div>
+    <ul id="dtc-list" class="dtc-list"><li class="none">NO STORED CODES</li></ul>
+  </section>
+
+  <footer class="foot">
+    <span id="updated">awaiting telemetry…</span>
+    <span id="errs"></span>
+  </footer>
+
+  <script src="dtc-codes.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
