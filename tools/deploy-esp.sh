@@ -43,7 +43,9 @@ fi
 say "Port: $PORT"
 
 # --- locate esp32 core tools (newest installed) ---
-PKG="$HOME/Library/Arduino15/packages/esp32/tools"
+DATA="$(arduino-cli config get directories.data 2>/dev/null)"
+[ -n "$DATA" ] || DATA="$HOME/Library/Arduino15"   # fallback (macOS default)
+PKG="$DATA/packages/esp32/tools"
 MKLITTLEFS="$(find "$PKG/mklittlefs" -name mklittlefs -type f 2>/dev/null | sort | tail -1 || true)"
 ESPTOOL="$(find "$PKG/esptool_py" -name esptool -type f 2>/dev/null | sort | tail -1 || true)"
 [ -x "$MKLITTLEFS" ] || die "mklittlefs not found (install the esp32 core)"

@@ -24,9 +24,11 @@ the firmware's pin use is consistent with a *safe and correct circuit*.
   straight to a pin.
 - **HC-05 Bluetooth** on D10/D11 (SoftwareSerial). HC-05 RX is a 3.3V-logic pin fed
   from a 5V TX — flag the missing divider/level shift if absent.
-- **Voltage divider** 680k:220k on A0 for battery-voltage sensing (the code's
-  `R1=680000`, `R2=220000`). Check the divider ratio keeps the input within
-  0–5V (or the chosen ADC ref) across the full 0–16V battery range.
+- **Voltage divider** 33k:10k (+100nF to A0) for battery-voltage sensing (the
+  code's `R1=33000`, `R2=10000`). Legacy was 680k:220k, but that source impedance
+  (~166k) far exceeds the ATmega328 ADC's ~10k max, so the lower-value divider is
+  the current recommendation. Check the ratio keeps the input within 0–5V (or the
+  chosen ADC ref) across the full 0–16V battery range.
 - **Pulse inputs** (injector/RPM/VSS) use a 50k resistor over a 5.1V zener — clamp
   + current-limit. **Switch outputs** (door lock/unlock, AC) use a 1k base resistor
   into a 2N3904 NPN. Relays/inductive loads need a flyback diode.

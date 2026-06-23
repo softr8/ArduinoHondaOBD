@@ -101,8 +101,8 @@ byte vss_alarm = 100; // kph
 // voltage divider
 //float R1 = 30000.0;
 //float R2 = 7500.0;
-float R1 = 680000.0; // Resistance of R1 (680kohms)
-float R2 = 220000.0; // Resistance of R2 (220kohms)
+float R1 = 33000.0; // Resistance of R1 (33kohms) - low ADC source impedance, +100nF on A0
+float R2 = 10000.0; // Resistance of R2 (10kohms)
 
 unsigned long err_timeout = 0, err_checksum = 0, ect_cnt = 0, vss_cnt = 0;
 
@@ -719,12 +719,14 @@ void procdlcSerial() {
     // x10 (deci-units), the web side scales them back.
     {
       char dtcs[44];
-      byte n = 0;
+      size_t n = 0;
       dtcs[n++] = '[';
       for (byte k = 0; k < dtcCount && k < 10; k++) {
-        n += snprintf(dtcs + n, sizeof(dtcs) - n, "%s%d", k ? "," : "", dtcErrors[k]);
+        int w = snprintf(dtcs + n, sizeof(dtcs) - n, "%s%d", k ? "," : "", dtcErrors[k]);
+        if (w < 0 || (size_t)w >= sizeof(dtcs) - n) break; // truncated/full: stop
+        n += w;
       }
-      dtcs[n++] = ']';
+      if (n < sizeof(dtcs) - 1) dtcs[n++] = ']';
       dtcs[n] = '\0';
 
       char j[300]; // sized for worst case: all fields + up to 10 DTCs + grown et/ec
