@@ -176,10 +176,11 @@ def full_schematic() -> None:
     gnd(uno.GND)
 
     # ======================= POWER (left) =======================
-    dlc = ic("Honda DLC",
+    dlc = ic("",
              right=[("V12", "+12V"), ("GND", "GND"), ("KL", "K-line")],
              w=2.2).at((-13, 1.5)).anchor("center")
     d += dlc
+    d.add(elm.Label().at((-13, 3.8)).label("Honda DLC", fontsize=11))
     d += elm.Line().right(0.6).at(dlc.V12)
     d += Fuse().right().label(P["fuse"], fontsize=9)
     d += Schottky().right().label(P["diode"], fontsize=9)
@@ -192,25 +193,31 @@ def full_schematic() -> None:
     d += elm.Wire("-|").at(nprot.center).to(uno.Vin).label("+12V prot", loc="top", fontsize=8)
     gnd(dlc.GND)
 
-    # ======================= COMMS (right) =======================
-    esp = ic("ESP32\nWiFi AP + WS :81",
-             left=[("V5", "5V"), ("G", "GND"), ("RX", "RX2")], w=2.8).at((9, 4.5)).anchor("center")
+    # mark the DLC K-line pin as the source of that net (the K-line interface
+    # lives next to the transceiver on the right, not wired across the page)
+    d += elm.Line().right(0.5).at(dlc.KL)
+    d += elm.Dot(open=True).label("to K-line\ninterface", "right", fontsize=8)
+
+    # ======================= COMMS (right, well spaced) =======================
+    espx = 11
+    esp = ic("", left=[("V5", "5V"), ("G", "GND"), ("RX", "RX2")], w=2.8).at((espx, 7)).anchor("center")
     d += esp
+    d.add(elm.Label().at((espx, 9.2)).label("ESP32  (WiFi AP, WS :81)", fontsize=10))
     v5(esp.V5)
     gnd(esp.G)
-    d += elm.Line().right(0.7).at(uno.D1)
+    d += elm.Line().right(0.8).at(uno.D1)
     d += elm.Resistor().right().label(P["lvl_top"], fontsize=8)
     nlv = d.add(elm.Dot())
     d += elm.Resistor().down().at(nlv.center).label(P["lvl_bot"], loc="right", fontsize=8)
     gnd(d.here)
     d += elm.Wire("-|").at(nlv.center).to(esp.RX).label("3.3V", loc="top", fontsize=8)
 
-    hc = ic("HC-05\nBluetooth",
-            left=[("RXD", "RXD"), ("TXD", "TXD"), ("VCC", "VCC"), ("G", "GND")], w=2.6).at((9, -1)).anchor("center")
+    hc = ic("", left=[("RXD", "RXD"), ("TXD", "TXD"), ("VCC", "VCC"), ("G", "GND")], w=2.6).at((espx, -1)).anchor("center")
     d += hc
+    d.add(elm.Label().at((espx, 1.8)).label("HC-05 Bluetooth", fontsize=10))
     v5(hc.VCC)
     gnd(hc.G)
-    d += elm.Line().right(0.7).at(uno.D11)
+    d += elm.Line().right(0.8).at(uno.D11)
     d += elm.Resistor().right().label(P["lvl_top"], fontsize=8)
     nlv2 = d.add(elm.Dot())
     d += elm.Resistor().down().at(nlv2.center).label(P["lvl_bot"], loc="right", fontsize=8)
@@ -218,22 +225,23 @@ def full_schematic() -> None:
     d += elm.Wire("-|").at(nlv2.center).to(hc.RXD).label("3.3V", loc="top", fontsize=8)
     d += elm.Wire("-|").at(hc.TXD).to(uno.D10)
 
-    # K-line transceiver (right, near D12); K-line routed over the top from the DLC
-    kx = ic("L9637D\nK-line xcvr",
-            left=[("RX", "RX"), ("TX", "TX"), ("VCC", "VCC"), ("G", "GND")],
-            right=[("K", "K"), ("VB", "VB")], w=2.6).at((9, -6.5)).anchor("center")
+    # K-line transceiver (right); its own K-line terminal sits beside it
+    kx = ic("", left=[("RX", "RX"), ("TX", "TX"), ("VCC", "VCC"), ("G", "GND")],
+            right=[("K", "K"), ("VB", "VB")], w=2.6).at((espx, -9)).anchor("center")
     d += kx
+    d.add(elm.Label().at((espx, -6.4)).label("L9637D K-line xcvr", fontsize=10))
     v5(kx.VCC)
     gnd(kx.G)
     d += elm.Wire("-|").at(kx.RX).to(uno.D12)
     d += elm.Wire("-|").at(kx.TX).to(uno.D12)
-    rk = elm.Resistor().right().at(kx.K).label(P["kline_series"], fontsize=8)
-    d += rk
-    d += elm.Wire("n", k=4).at(dlc.KL).to(rk.end).label("K-line", loc="top", fontsize=8)
-    d += elm.Line().at(kx.VB).right(0.5).label("+12V prot", loc="right", fontsize=8)
+    d += elm.Line().right(0.4).at(kx.K)
+    d += elm.Resistor().right().label(P["kline_series"], fontsize=8)
+    d += elm.Dot(open=True).label("K-line\n(Honda DLC)", "right", fontsize=8)
+    d += elm.Line().right(0.5).at(kx.VB)
+    d += elm.Dot(open=True).label("+12V prot", "right", fontsize=8)
 
-    # buzzer on D13
-    d += elm.Line().right(0.7).at(uno.D13)
+    # buzzer on D13 (open gap between the UNO and the modules)
+    d += elm.Line().right(2.5).at(uno.D13)
     d += elm.Speaker().right().label(f"buzzer\n{P['buzzer']}", fontsize=8)
     gnd(d.here)
 
