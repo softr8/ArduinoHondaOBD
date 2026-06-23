@@ -25,7 +25,41 @@ Files
 * hobd_uni - unified code for ELM bluetooth and LCD display with other improvements.
 * hobd_elm - implements Honda OBD to ELM OBD2 protocol (bluetooth) - not updated
 * hobd_lcd - implements Honda OBD to LCD display - not updated
+* hobd_esp - ESP32 WiFi/WebSocket co-processor: rebroadcasts the live data and serves the dashboard
+* dashboard - installable PWA web dashboard (live gauges over WebSocket)
 * UNI_wiring.png - Unified wiring diagram for arduino UNO (compatible)
+
+
+Live WiFi Dashboard (ESP32 + PWA)
+---------------------------------
+Pair `hobd_uni` (Arduino UNO) with an `hobd_esp` (ESP32) co-processor to view the
+live OBD data on any phone, tablet, or laptop over WiFi — no app store, no internet
+needed.
+
+How it works:
+
+    Honda ECU --K-line--> Arduino UNO (hobd_uni) --UART JSON--> ESP32 (hobd_esp)
+                                                                  |  WiFi Access Point
+                                                                  |  + WebSocket server
+                                                                  v
+                                                        phone / tablet / laptop
+                                                        (PWA, ws://192.168.4.1:81)
+
+- The UNO streams a compact JSON line (~4 Hz) to the ESP32 over the hardware UART
+  (D1 TX -> ESP RX through a 1k/2k divider; see the schematic above).
+- The ESP32 runs its own WiFi hotspot ("HondaOBD", 192.168.4.1), rebroadcasts each
+  line over a WebSocket, and serves the dashboard page from its flash (LittleFS).
+- Open `http://192.168.4.1` in any browser and "Add to Home Screen" to install it
+  as a full-screen PWA. It shows a shift-light tachometer, speed, coolant/intake
+  temps, battery, fuel trims, and a check-engine lamp with decoded DTCs.
+- The existing Bluetooth/Torque path keeps working — the WiFi dashboard is additive.
+
+Build & flash (one command each):
+
+    tools/deploy-uni.sh        # UNO firmware
+    tools/deploy-esp.sh        # ESP32 firmware + dashboard to LittleFS
+
+See `dashboard/README.md` for the JSON schema and a no-hardware mock server.
 
 
 Wiring for hobd_uni (Joined ELM and LCD codes)
