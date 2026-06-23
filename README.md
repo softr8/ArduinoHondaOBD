@@ -75,7 +75,14 @@ can touch the Arduino directly. The diagram below is the safe, working wiring.
 (Diagrams are generated from `tools/schematic/wiring.py` — run
 `tools/gen-schematic.sh` after editing it.)
 
-A symbol-level schematic of the protection front-end:
+Complete build schematic — every component (UNO with all pins, ESP32, HC-05,
+I2C LCD, K-line transceiver, power protection, sensors, buttons, buzzer).
+Power/ground use net symbols: every `+5V` ties together, every ground symbol
+ties together.
+
+![hobd_uni full schematic](images/hobd_uni_full_schematic.svg)
+
+A zoomed-in symbol-level view of just the protection front-end:
 
 ![hobd_uni protection schematic](images/hobd_uni_schematic.svg)
 

@@ -23,6 +23,10 @@ PARTS = {
     "div_bot":      "10kΩ",
     "div_cap":      "100nF",
     "i2c_pull":     "4.7kΩ",
+    "buzzer":       "piezo",
+    "reset_btn":    "tact",
+    "nav_btn":      "tact (page/mode)",
+    "regulator":    "buck → 5V (or UNO reg)",
 }
 
 # --- nodes: id -> (label, role) ; role drives Mermaid colour class ---
