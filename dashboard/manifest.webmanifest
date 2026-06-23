@@ -1,0 +1,15 @@
+{
+  "name": "Honda OBD Live",
+  "short_name": "HondaOBD",
+  "description": "Live Honda OBD gauges over WebSocket",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0806",
+  "theme_color": "#0a0806",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
