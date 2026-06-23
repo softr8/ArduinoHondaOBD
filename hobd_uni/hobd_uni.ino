@@ -108,6 +108,9 @@ unsigned long err_timeout = 0, err_checksum = 0, ect_cnt = 0, vss_cnt = 0;
 
 byte dlcdata[20]={0};  // dlc data buffer
 
+byte dtcErrors[10]={0}; // captured DTC (Honda MIL code numbers) for the WiFi stream
+byte dtcCount = 0;
+
 void serial_debug(byte data[]) {
   // debug
   int i;
@@ -553,6 +556,26 @@ void procbtSerial() {
     }
 }  
 
+// Scan DTCs into dtcErrors[]/dtcCount without touching the LCD (used by the WiFi
+// stream's periodic auto-scan). Mirrors the page-3 decode (row 0x40, hi/lo nibble
+// per byte, same 23/24 haxx remap).
+void scanDtc() {
+  dtcCount = 0;
+  if (dlcCommand(0x20, 0x05, 0x40, 0x10)) {
+    for (byte i = 0; i < 14 && dtcCount < 10; i++) {
+      if (dlcdata[i + 2] >> 4) {
+        dtcErrors[dtcCount++] = i * 2;
+      }
+      if ((dlcdata[i + 2] & 0x0f) && dtcCount < 10) {
+        byte e = (i * 2) + 1;
+        if (e == 23) e = 22; // haxx
+        if (e == 24) e = 23;
+        dtcErrors[dtcCount++] = e;
+      }
+    }
+  }
+}
+
 void procdlcSerial() {
   static unsigned long msTick = millis();
 
@@ -683,6 +706,39 @@ void procdlcSerial() {
     if (ect > ect_alarm || vss > vss_alarm) { digitalWrite(13, HIGH); }
     else { digitalWrite(13, LOW); }
 
+    // periodic DTC auto-scan (~10s) so the WiFi stream has fresh codes without
+    // anyone pressing the car button
+    static unsigned long dtcTick = 0;
+    if (millis() - dtcTick >= 10000) {
+      dtcTick = millis();
+      scanDtc();
+    }
+
+    // stream one compact JSON line to the ESP WiFi/WebSocket co-processor over the
+    // hardware UART (D1 TX). Integers only (AVR printf has no %f): volt and ign are
+    // x10 (deci-units), the web side scales them back.
+    {
+      char dtcs[44];
+      byte n = 0;
+      dtcs[n++] = '[';
+      for (byte k = 0; k < dtcCount && k < 10; k++) {
+        n += snprintf(dtcs + n, sizeof(dtcs) - n, "%s%d", k ? "," : "", dtcErrors[k]);
+      }
+      dtcs[n++] = ']';
+      dtcs[n] = '\0';
+
+      char j[300]; // sized for worst case: all fields + up to 10 DTCs + grown et/ec
+      snprintf(j, sizeof(j),
+        "{\"rpm\":%d,\"vss\":%d,\"ect\":%d,\"iat\":%d,\"map\":%d,\"tps\":%d,"
+        "\"volt\":%d,\"sft\":%d,\"lft\":%d,\"inj\":%d,\"ign\":%d,\"iac\":%d,"
+        "\"knoc\":%d,\"vavg\":%d,\"vtop\":%d,\"et\":%lu,\"ec\":%lu,"
+        "\"mil\":%d,\"dtc\":%s}",
+        rpm, vss, ect, iat, maps, tps,
+        volt, sft, lft, inj, ign, iac,
+        knoc, vssavg, vsstop, err_timeout, err_checksum,
+        (dtcCount > 0 ? 1 : 0), dtcs);
+      Serial.println(j);
+    }
 
     //lcd.clear();
     if (pag_select == 0) {
@@ -1094,7 +1150,7 @@ void setup()
   //pinMode(18, OUTPUT); // Door lock
   //pinMode(19, OUTPUT); // Door unlock
 
-  //Serial.begin(115200); // For debugging
+  Serial.begin(115200); // USB debug + ESP WiFi co-processor (JSON stream on D1 TX)
   btSerial.begin(9600);
   //btSerial.begin(38400);
   dlcSerial.begin(9600);
