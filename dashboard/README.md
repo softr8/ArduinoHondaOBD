@@ -54,8 +54,18 @@ Check-Engine panel can be tested. Kill/restart it to verify auto-reconnect.
 
 Deploy to the ESP
 -----------------
-Copy `index.html`, `style.css`, `app.js`, `dtc-codes.js`, `manifest.webmanifest`,
-`sw.js`, and two PNG icons (`icon-192.png`, `icon-512.png`) to the ESP's LittleFS,
-then browse to `http://192.168.4.1` and "Add to Home Screen".
+One command compiles + uploads the firmware AND builds + flashes the dashboard
+to LittleFS:
 
-(Icons are not committed — drop in any 192px and 512px PNG.)
+    tools/deploy-esp.sh [PORT]
+
+(PORT auto-detected if omitted.) Then browse to `http://192.168.4.1` and "Add to
+Home Screen". The script flashes only the runtime files (index.html, style.css,
+app.js, dtc-codes.js, manifest.webmanifest, sw.js, and icon-192/512.png if
+present) — not this README, the mock server, or node_modules.
+
+Assumes the default 4MB partition scheme (LittleFS at 0x290000); override with
+`FS_OFFSET=… FS_SIZE=… tools/deploy-esp.sh` for other schemes. Requires the esp32
+core + libs from `hobd_esp.ino`.
+
+(Icons are not committed — drop any 192px and 512px PNG into dashboard/.)
