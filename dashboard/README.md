@@ -7,10 +7,11 @@ phone/desktop. No build step — plain HTML/CSS/JS.
 
 Data flow
 ---------
-    ATmega328 (hobd_uni) --UART JSON--> ESP (hobd_esp) --WebSocket :81--> this app
+    Honda ECU --K-line--> ESP32 (hobd_esp) --WebSocket :81--> this app
 
-The ATmega streams one JSON line every ~250 ms. The ESP rebroadcasts each line to
-all connected WebSocket clients.
+The ESP32 reads the K-line directly and broadcasts one JSON line every ~250 ms to
+all connected WebSocket clients. (The legacy two-board build streamed the same JSON
+from an ATmega over UART; the schema below is identical either way.)
 
 JSON schema (one object per line)
 ---------------------------------
